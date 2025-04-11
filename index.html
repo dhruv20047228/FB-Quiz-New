@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Formula Bharat Quiz</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f9fafb;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 16px;
+      max-width: 700px;
+      width: 90%;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+    h1 {
+      color: #1d4ed8;
+      font-size: 2rem;
+      margin-bottom: 20px;
+    }
+    .nav-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .nav-buttons button {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1px solid #cbd5e1;
+      background-color: white;
+      cursor: pointer;
+    }
+    .nav-buttons button.active {
+      background-color: #1d4ed8;
+      color: white;
+    }
+    .nav-buttons button.answered {
+      background-color: #a5b4fc;
+      color: white;
+    }
+    .question-box {
+      margin-bottom: 20px;
+    }
+    .options {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    }
+    .options button.selected {
+      background-color: #3b82f6;
+      color: white;
+    }
+    .submit-btn, .start-btn, .next-btn, .add-question-btn, .back-btn {
+      margin-top: 20px;
+      background-color: #059669;
+      color: white;
+      padding: 12px 24px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+    }
+    .login-form input, .login-form textarea, .login-form select {
+      padding: 10px;
+      width: 60%;
+      margin: 10px 0;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+    }
+    .option-inputs input[type="text"] {
+      display: block;
+      margin: 5px auto;
+      padding: 8px;
+      width: 80%;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Formula Bharat Quiz</h1>
+    <div id="quiz-container"></div>
+  </div>
+
+  <script>
+    let questions = [];
+    let current = 0;
+    let selectedAnswers = {};
+    let score = 0;
+    let timeTaken = 0;
+    let intervalId = null;
+    let submitted = false;
+    let teamName = "";
+    let isMultipleChoice = false;
+
+    function startTimer() {
+      intervalId = setInterval(() => timeTaken++, 1000);
+    }
+
+    function showRoleSelection() {
+      const container = document.getElementById("quiz-container");
+      container.innerHTML = `
+        <div class="login-form">
+          <h2>Select Role</h2>
+          <button onclick="showAdminLogin()">Admin</button>
+          <button onclick="showUserLogin()">User</button>
+        </div>
+      `;
+    }
+
+    function showAdminLogin() {
+      const container = document.getElementById("quiz-container");
+      container.innerHTML = `
+        <div class="login-form">
+          <h2>Admin Login</h2>
+          <input type="text" id="adminUser" placeholder="Username" />
+          <input type="password" id="adminPass" placeholder="Password" />
+          <button onclick="verifyAdmin()">Login</button>
+          <br><br>
+          <button class="back-btn" onclick="showRoleSelection()">Back</button>
+        </div>
+      `;
+    }
+
+    function verifyAdmin() {
+      const user = document.getElementById("adminUser").value;
+      const pass = document.getElementById("adminPass").value;
+      if (user === "admin" && pass === "admin123") {
+        showQuestionInput();
+      } else {
+        alert("Invalid credentials");
+      }
+    }
+
+    function showUserLogin() {
+      const container = document.getElementById("quiz-container");
+      container.innerHTML = `
+        <div class="login-form">
+          <h2>Enter Team Name to Start</h2>
+          <input type="text" id="teamName" placeholder="Team Name" />
+          <button class="start-btn" onclick="startQuiz()">Start Quiz</button>
+          <br><br>
+          <button class="back-btn" onclick="showRoleSelection()">Back</button>
+        </div>
+      `;
+    }
+
+    function showQuestionInput() {
+      const container = document.getElementById("quiz-container");
+      container.innerHTML = `
+        <div class="login-form">
+          <h2>Add a Question</h2>
+          <textarea id="newQuestion" placeholder="Enter your question"></textarea>
+          <div>
+            <label>Upload Image: <input type="file" id="imageUpload" /></label>
+          </div>
+          <div>
+            <label>Type:
+              <select id="questionType">
+                <option value="single">Single Choice</option>
+                <option value="multiple">Multiple Choice</option>
+              </select>
+            </label>
+          </div>
+          <div class="option-inputs">
+            <input type="text" placeholder="Option 1" id="opt1">
+            <input type="text" placeholder="Option 2" id="opt2">
+            <input type="text" placeholder="Option 3" id="opt3">
+            <input type="text" placeholder="Option 4" id="opt4">
+            <input type="text" placeholder="Correct Answer(s) (comma-separated)" id="correct">
+          </div>
+          <button onclick="addQuestion()">Add Question</button>
+          <button class="back-btn" onclick="showRoleSelection()">Logout</button>
+        </div>
+      `;
+    }
+
+    function addQuestion() {
+      const question = document.getElementById("newQuestion").value;
+      const image = document.getElementById("imageUpload").files[0];
+      const type = document.getElementById("questionType").value;
+      const options = ["opt1", "opt2", "opt3", "opt4"].map(id => document.getElementById(id).value);
+      const answer = document.getElementById("correct").value.split(',').map(a => a.trim());
+
+      if (!question || options.some(opt => !opt) || answer.length === 0) {
+        alert("Please fill all fields");
+        return;
+      }
+
+      let imgURL = "";
+      if (image) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          questions.push({ question, options, answer, type, image: e.target.result });
+          alert("Question added! Add more or logout.");
+          showQuestionInput();
+        };
+        reader.readAsDataURL(image);
+      } else {
+        questions.push({ question, options, answer, type });
+        alert("Question added! Add more or logout.");
+        showQuestionInput();
+      }
+    }
+
+    function startQuiz() {
+      const input = document.getElementById("teamName");
+      if (!input.value.trim()) return alert("Please enter your Team Name");
+      if (questions.length === 0) return alert("No questions available");
+
+      teamName = input.value.trim();
+      startTimer();
+      renderQuiz();
+    }
+
+    function renderQuiz() {
+      const container = document.getElementById("quiz-container");
+      container.innerHTML = "";
+
+      if (submitted) {
+        let details = questions.map((q, i) => {
+          const userAns = selectedAnswers[i] || [];
+          const correct = JSON.stringify(userAns.sort()) === JSON.stringify(q.answer.sort());
+          return `<p><strong>Q${i + 1}:</strong> ${q.question}<br>
+                  Your Answer: ${userAns.join(', ') || 'Not Answered'} - <span style="color: ${correct ? 'green' : 'red'}">${correct ? 'Correct' : 'Incorrect'}</span><br>
+                  Correct Answer: ${q.answer.join(', ')}</p><hr>`;
+        }).join('');
+
+        container.innerHTML = `
+          <div class="results">
+            <h2>Results for ${teamName}</h2>
+            <p>Score: <strong>${score} / ${questions.length}</strong></p>
+            <p>Time taken: <strong>${timeTaken} seconds</strong></p>
+            ${details}
+          </div>
+        `;
+        return;
+      }
+
+      const nav = document.createElement("div");
+      nav.className = "nav-buttons";
+      questions.forEach((_, idx) => {
+        const btn = document.createElement("button");
+        btn.textContent = idx + 1;
+        if (idx === current) btn.classList.add("active");
+        else if (selectedAnswers[idx]) btn.classList.add("answered");
+        btn.onclick = () => {
+          current = idx;
+          renderQuiz();
+        };
+        nav.appendChild(btn);
+      });
+
+      const q = questions[current];
+      const questionBox = document.createElement("div");
+      questionBox.className = "question-box";
+      questionBox.innerHTML = `<h2>Question ${current + 1}: ${q.question}</h2>`;
+      if (q.image) questionBox.innerHTML += `<img src="${q.image}" width="200" />`;
+
+      const options = document.createElement("div");
+      options.className = "options";
+      q.options.forEach((opt) => {
+        const btn = document.createElement("button");
+        btn.textContent = opt;
+        const userAns = selectedAnswers[current] || [];
+        if (userAns.includes(opt)) btn.classList.add("selected");
+        btn.onclick = () => {
+          if (!selectedAnswers[current]) selectedAnswers[current] = [];
+          if (q.type === "multiple") {
+            const idx = selectedAnswers[current].indexOf(opt);
+            if (idx > -1) selectedAnswers[current].splice(idx, 1);
+            else selectedAnswers[current].push(opt);
+          } else {
+            selectedAnswers[current] = [opt];
+          }
+          renderQuiz();
+        };
+        options.appendChild(btn);
+      });
+
+      const nextBtn = document.createElement("button");
+      nextBtn.className = "next-btn";
+      nextBtn.textContent = current === questions.length - 1 ? "Submit Quiz" : "Next";
+      nextBtn.onclick = () => {
+        if (current === questions.length - 1) {
+          clearInterval(intervalId);
+          questions.forEach((q, i) => {
+            const userAns = selectedAnswers[i] || [];
+            if (JSON.stringify(userAns.sort()) === JSON.stringify(q.answer.sort())) score++;
+          });
+          submitted = true;
+          renderQuiz();
+        } else {
+          current++;
+          renderQuiz();
+        }
+      };
+
+      container.appendChild(nav);
+      container.appendChild(questionBox);
+      container.appendChild(options);
+      container.appendChild(nextBtn);
+    }
+
+    showRoleSelection();
+  </script>
+</body>
+</html>
