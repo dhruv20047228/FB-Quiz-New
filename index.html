@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Formula Bharat Quiz</title>
-  <style>
+  <style> 
     body {
       font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
       background-color: #f9fafb;
@@ -54,10 +54,19 @@
     .question-box {
       margin-bottom: 20px;
     }
+    .question-image img {
+      max-width: 100%;
+      width: 500px;
+      height: auto;
+      margin: 10px 0;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
     .options {
       display: grid;
       gap: 10px;
       grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      justify-items: center;
     }
     .options button.selected {
       background-color: #3b82f6;
@@ -103,7 +112,6 @@
     let intervalId = null;
     let submitted = false;
     let teamName = "";
-    let isMultipleChoice = false;
 
     function startTimer() {
       intervalId = setInterval(() => timeTaken++, 1000);
@@ -171,6 +179,7 @@
               <select id="questionType">
                 <option value="single">Single Choice</option>
                 <option value="multiple">Multiple Choice</option>
+                <option value="integer">Integer</option>
               </select>
             </label>
           </div>
@@ -194,7 +203,7 @@
       const options = ["opt1", "opt2", "opt3", "opt4"].map(id => document.getElementById(id).value);
       const answer = document.getElementById("correct").value.split(',').map(a => a.trim());
 
-      if (!question || options.some(opt => !opt) || answer.length === 0) {
+      if (!question || answer.length === 0 || (type !== "integer" && options.some(opt => !opt))) {
         alert("Please fill all fields");
         return;
       }
@@ -232,7 +241,7 @@
       if (submitted) {
         let details = questions.map((q, i) => {
           const userAns = selectedAnswers[i] || [];
-          const correct = JSON.stringify(userAns.sort()) === JSON.stringify(q.answer.sort());
+          const correct = JSON.stringify(userAns.map(String).sort()) === JSON.stringify(q.answer.map(String).sort());
           return `<p><strong>Q${i + 1}:</strong> ${q.question}<br>
                   Your Answer: ${userAns.join(', ') || 'Not Answered'} - <span style="color: ${correct ? 'green' : 'red'}">${correct ? 'Correct' : 'Incorrect'}</span><br>
                   Correct Answer: ${q.answer.join(', ')}</p><hr>`;
@@ -267,28 +276,45 @@
       const questionBox = document.createElement("div");
       questionBox.className = "question-box";
       questionBox.innerHTML = `<h2>Question ${current + 1}: ${q.question}</h2>`;
-      if (q.image) questionBox.innerHTML += `<img src="${q.image}" width="200" />`;
+      if (q.image) {
+        questionBox.innerHTML += `
+          <div class="question-image">
+            <img src="${q.image}" alt="Question Image" />
+          </div>`;
+      }
 
       const options = document.createElement("div");
       options.className = "options";
-      q.options.forEach((opt) => {
-        const btn = document.createElement("button");
-        btn.textContent = opt;
-        const userAns = selectedAnswers[current] || [];
-        if (userAns.includes(opt)) btn.classList.add("selected");
-        btn.onclick = () => {
-          if (!selectedAnswers[current]) selectedAnswers[current] = [];
-          if (q.type === "multiple") {
-            const idx = selectedAnswers[current].indexOf(opt);
-            if (idx > -1) selectedAnswers[current].splice(idx, 1);
-            else selectedAnswers[current].push(opt);
-          } else {
-            selectedAnswers[current] = [opt];
-          }
-          renderQuiz();
+
+      if (q.type === "integer") {
+        const input = document.createElement("input");
+        input.type = "number";
+        input.placeholder = "Enter your answer";
+        input.value = selectedAnswers[current] ? selectedAnswers[current][0] : "";
+        input.onchange = (e) => {
+          selectedAnswers[current] = [e.target.value];
         };
-        options.appendChild(btn);
-      });
+        options.appendChild(input);
+      } else {
+        q.options.forEach((opt) => {
+          const btn = document.createElement("button");
+          btn.textContent = opt;
+          const userAns = selectedAnswers[current] || [];
+          if (userAns.includes(opt)) btn.classList.add("selected");
+          btn.onclick = () => {
+            if (!selectedAnswers[current]) selectedAnswers[current] = [];
+            if (q.type === "multiple") {
+              const idx = selectedAnswers[current].indexOf(opt);
+              if (idx > -1) selectedAnswers[current].splice(idx, 1);
+              else selectedAnswers[current].push(opt);
+            } else {
+              selectedAnswers[current] = [opt];
+            }
+            renderQuiz();
+          };
+          options.appendChild(btn);
+        });
+      }
 
       const nextBtn = document.createElement("button");
       nextBtn.className = "next-btn";
@@ -298,7 +324,7 @@
           clearInterval(intervalId);
           questions.forEach((q, i) => {
             const userAns = selectedAnswers[i] || [];
-            if (JSON.stringify(userAns.sort()) === JSON.stringify(q.answer.sort())) score++;
+            if (JSON.stringify(userAns.map(String).sort()) === JSON.stringify(q.answer.map(String).sort())) score++;
           });
           submitted = true;
           renderQuiz();
